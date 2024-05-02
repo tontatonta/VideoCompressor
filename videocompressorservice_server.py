@@ -1,5 +1,6 @@
 import socket
 import ffmpeg
+import json
 
 class VideoProcessor: #動画を変更するクラス
     def __init__(self):
@@ -45,8 +46,6 @@ class VideoProcessor: #動画を変更するクラス
             .run()
         )
 
-
-
 class Server:
     def __init__(self, address, port):
         self.address = address
@@ -54,24 +53,57 @@ class Server:
         self.processor = VideoProcessor()
 
     def handle_client(self, conn):
-        request = conn.recv(1024).decode().split()
-        command_number = request[0]
-        file_name = request[1]
-        output_file = request[2]
-        if command_number == '1':
-            self.process_video('compress', file_name, output_file)
-        elif command_number == '2':
-            self.process_video('change_resolution', file_name, output_file)
-        elif command_number == '3':
-            self.process_video('change_aspect_ratio', file_name, output_file)
-        elif command_number == '4':
-            self.process_video('convert_to_audio', file_name, output_file)
-        elif command_number == '5':
-            self.process_video('convert_to_gif', file_name, output_file)
+        try:
+            header_size = 64
+            header = conn.recv(header_size)
+            if not header:
+                return
+            
+            data_size = int.from_bytes(header, byteorder='big')
+            data = b""
+            while len(data) < data_size:
+                chunk = conn.recv(1024)
+                if not chunk:
+                    break
+                data += chunk
 
-        with open(output_file, "rb") as f:
-            data = f.read()
-            conn.sendall(data)
+            # データを解析して処理
+            json_size = int.from_bytes(data[:16], byteorder='big')
+            # media_type_size = int.from_bytes(data[16:17], byteorder='big')
+            json_str = data[17:17+json_size].decode()
+            # media_type = data[17+json_size:17+json_size+media_type_size].decode() #メディアタイプ
+            # payload_size = int.from_bytes(data[17+json_size+media_type_size:], byteorder='big')
+
+
+            json_data = json.loads(json_str)
+            command_number = json_data["command_number"]
+            file_name = json_data["file_name"]
+            output_file = json_data["output_file"]
+
+            if command_number == '1':
+                self.process_video('compress', file_name, output_file)
+            elif command_number == '2':
+                self.process_video('change_resolution', file_name, output_file)
+            elif command_number == '3':
+                self.process_video('change_aspect_ratio', file_name, output_file)
+            elif command_number == '4':
+                self.process_video('convert_to_audio', file_name, output_file)
+            elif command_number == '5':
+                self.process_video('convert_to_gif', file_name, output_file)
+
+            with open(output_file, "rb") as f:
+                data = f.read()
+                conn.sendall(data)
+        except Exception as e: #エラー処理jsonを送信
+            error_data = {
+                "error_code": 500,
+                "description": "An error occurred while processing the request.",
+                "solution": "Please check the request parameters and try again."
+            }
+            error_json = json.dumps(error_data)
+            header = b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x40\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+            conn.sendall(header)
+            conn.sendall(error_json.encode())
 
     def process_video(self, method, input_file, output_file):
         if method == 'compress':
