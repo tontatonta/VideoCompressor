@@ -22,7 +22,7 @@ class VideoProcessor: #動画を変更するクラス
             .run()
         )
 
-    def change_aspect_ratio(self, input_file, output_file, aspect_ratio='1:1'): # アスペクト比を変更する関数
+    def change_aspect_ratio(self, input_file, output_file, aspect_ratio='2:1'): # アスペクト比を変更する関数
         (
             ffmpeg
             .input(input_file)
