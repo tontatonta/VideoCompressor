@@ -94,8 +94,7 @@ class Server:
             with open(output_file, "rb") as f:
                 data = f.read()
                 conn.sendall(data)
-        except Exception as e:
-            # エラーが発生した場合、エラーコード、説明、解決策を含むJSONファイルを送信
+        except Exception as e: #エラー処理jsonを送信
             error_data = {
                 "error_code": 500,
                 "description": "An error occurred while processing the request.",
