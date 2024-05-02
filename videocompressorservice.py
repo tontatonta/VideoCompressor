@@ -1,10 +1,28 @@
 import socket
+import json
+
+def mmp(command_number, file_name, output_file):
+    json_data = {
+        "command_number": command_number,
+        "file_name": file_name,
+        "output_file": output_file
+    }
+    json_str = json.dumps(json_data)  # 辞書からJSONに変更
+    json_size = len(json_str).to_bytes(16, byteorder='big')
+    media_type = b'mp4'  # 実際のメディアタイプを設定
+    media_type_size = len(media_type).to_bytes(1, byteorder='big')
+    payload = b'Your media data here'  # 実際のメディアデータを設定
+    payload_size = len(payload).to_bytes(47, byteorder='big')
+
+    return json_size + media_type_size + json_str.encode() + media_type + payload_size + payload
+
 
 def send_request(command_number, file_name, output_file, address, port):
-    request = f"{command_number} {file_name} {output_file}"
+    request = mmp(command_number, file_name, output_file)
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.connect((address, port))
-        s.sendall(request.encode())
+        header = len(request).to_bytes(64, byteorder='big')
+        s.sendall(header + request)
         data = b""
         while True:
             chunk = s.recv(1024)
